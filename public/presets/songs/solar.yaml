@@ -1,0 +1,13 @@
+name: Solar
+author: ""
+email: ""
+progression: Cm7 | Cm7 | Fm7 | Bb7 | Ebmaj7 | Ebmaj7
+bpm: 130
+playChords: true
+loop: true
+metronome: false
+instrument: concert
+notesPerBar: 4
+lowerMidi: 60
+upperMidi: 84
+intervalPractice: seconds

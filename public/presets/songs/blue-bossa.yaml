@@ -1,0 +1,13 @@
+name: Blue Bossa
+author: ""
+email: ""
+progression: Cm7 | F7 | Bbmaj7 | Ebmaj7 Cm7
+bpm: 100
+playChords: true
+loop: true
+metronome: true
+instrument: concert
+notesPerBar: 4
+lowerMidi: 60
+upperMidi: 84
+intervalPractice: seconds

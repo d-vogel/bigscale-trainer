@@ -1,0 +1,13 @@
+name: Autumn Leaves
+author: Bill Evans
+email: ""
+progression: Am7 | D7 | Gmaj7 | Cmaj7 | F#ø7 | B7 | Em7
+bpm: 100
+playChords: true
+loop: true
+metronome: false
+instrument: concert
+notesPerBar: 4
+lowerMidi: 60
+upperMidi: 84
+intervalPractice: seconds

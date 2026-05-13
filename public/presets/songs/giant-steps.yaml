@@ -1,0 +1,13 @@
+name: Giant Steps
+author: ""
+email: ""
+progression: Bmaj7 | D7 | Gmaj7 | Bb7 | Ebmaj7 | F#7
+bpm: 160
+playChords: true
+loop: true
+metronome: false
+instrument: concert
+notesPerBar: 6
+lowerMidi: 60
+upperMidi: 84
+intervalPractice: thirds

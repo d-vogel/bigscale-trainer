@@ -1,0 +1,13 @@
+name: The Girl from Ipanema
+author: ""
+email: ""
+progression: Fmaj7 | Gm7 C7 | Fmaj7 | Gm7 C7
+bpm: 100
+playChords: true
+loop: true
+metronome: false
+instrument: concert
+notesPerBar: 4
+lowerMidi: 60
+upperMidi: 84
+intervalPractice: seconds

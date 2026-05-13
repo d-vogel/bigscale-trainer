@@ -1,0 +1,13 @@
+name: Take Five
+author: ""
+email: ""
+progression: Em7 | Em7 | Em7 | Em7
+bpm: 120
+playChords: true
+loop: true
+metronome: true
+instrument: concert
+notesPerBar: 5
+lowerMidi: 60
+upperMidi: 84
+intervalPractice: fourths

@@ -1,0 +1,13 @@
+name: Fly Me to the Moon
+author: ""
+email: ""
+progression: Cmaj7 | Am7 | Dm7 | G7 | Cmaj7
+bpm: 100
+playChords: true
+loop: true
+metronome: false
+instrument: concert
+notesPerBar: 4
+lowerMidi: 60
+upperMidi: 84
+intervalPractice: seconds

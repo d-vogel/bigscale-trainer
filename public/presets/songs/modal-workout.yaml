@@ -1,0 +1,13 @@
+name: Modal Workout
+author: Miles Davis
+email: ""
+progression: Dm7 | Dm7 | Dm7 | Dm7
+bpm: 120
+playChords: true
+loop: true
+metronome: true
+instrument: concert
+notesPerBar: 6
+lowerMidi: 60
+upperMidi: 84
+intervalPractice: thirds
