@@ -19,6 +19,7 @@ interface Preset {
   author?: string;
   email?: string;
   progression: string;
+  allowJazzShorthand?: boolean;
   bpm: number;
   playChords: boolean;
   loop: boolean;
@@ -51,6 +52,7 @@ const INTERVAL_STEPS: Record<IntervalPractice, number> = {
 
 interface AppState {
   progressionText: string;
+  allowJazzShorthand: boolean;
   bpm: number;
   playChords: boolean;
   loop: boolean;
@@ -82,6 +84,20 @@ interface LineNote {
   label: string;
 }
 
+interface ChordTokenFeedback {
+  raw: string;
+  normalized: string;
+  valid: boolean;
+  suggestions: string[];
+}
+
+interface ProgressionBarFeedback {
+  index: number;
+  raw: string;
+  tokens: ChordTokenFeedback[];
+  valid: boolean;
+}
+
 const STORAGE_KEY = "bigscale.presets.v1";
 const INSTRUMENT_PRESETS_KEY = "bigscale.instrument-presets.v1";
 const MIN_NOTES_PER_BAR = 2;
@@ -93,6 +109,7 @@ const AUTUMN_LEAVES = "Am7 | D7 | Gmaj7 | Cmaj7 | F#ø7 | B7 | Em7";
 
 const state: AppState = {
   progressionText: "Cmaj7 | Dm7 | G7 | Cmaj7",
+  allowJazzShorthand: true,
   bpm: 100,
   playChords: true,
   loop: true,
@@ -179,6 +196,36 @@ root.innerHTML = `
       <div class="instrument-panel-body">
         <label for="progression">Chord progression (one chord per bar, separated by |)</label>
         <textarea id="progression" rows="3"></textarea>
+        <p class="progression-hint">Examples: G | Em7 A7 | Am7b5/D# | B7#5. Input is in your selected instrument key.</p>
+        <div id="progression-feedback" class="progression-feedback" aria-live="polite"></div>
+
+        <div class="chord-builder" aria-label="Quick chord builder">
+          <span class="limit-title">Quick insert</span>
+          <div class="chord-builder-row">
+            <select id="builder-root" aria-label="Chord root">
+              <option>C</option><option>C#</option><option>Db</option><option>D</option><option>Eb</option><option>E</option>
+              <option>F</option><option>F#</option><option>Gb</option><option>G</option><option>Ab</option><option>A</option>
+              <option>Bb</option><option>B</option>
+            </select>
+            <select id="builder-quality" aria-label="Chord quality">
+              <option value="">major</option>
+              <option value="maj7">maj7</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="7#5">7#5</option>
+              <option value="m7">m7</option>
+              <option value="m7b5">m7b5</option>
+              <option value="dim7">dim7</option>
+            </select>
+            <select id="builder-bass" aria-label="Slash bass">
+              <option value="">No slash bass</option>
+              <option>C</option><option>C#</option><option>Db</option><option>D</option><option>Eb</option><option>E</option>
+              <option>F</option><option>F#</option><option>Gb</option><option>G</option><option>Ab</option><option>A</option>
+              <option>Bb</option><option>B</option>
+            </select>
+            <button id="builder-insert" type="button">Insert chord</button>
+          </div>
+        </div>
 
         <div class="grid controls-grid">
           <label>
@@ -206,6 +253,7 @@ root.innerHTML = `
         </div>
 
         <div class="grid toggles-grid">
+          <label><input id="toggle-jazz-shorthand" type="checkbox" /> Jazz shorthand aliases</label>
           <label><input id="toggle-play-chords" type="checkbox" /> Play chords</label>
           <label><input id="toggle-loop" type="checkbox" /> Loop</label>
           <label><input id="toggle-metronome" type="checkbox" /> Metronome</label>
@@ -238,10 +286,12 @@ root.innerHTML = `
 `;
 
 const progressionEl = requiredElement<HTMLTextAreaElement>("#progression");
+const progressionFeedbackEl = requiredElement<HTMLDivElement>("#progression-feedback");
 const bpmEl = requiredElement<HTMLInputElement>("#bpm");
 const instrumentEl = requiredElement<HTMLSelectElement>("#instrument");
 const notesPerBarEl = requiredElement<HTMLInputElement>("#notes-per-bar");
 const intervalPracticeEl = requiredElement<HTMLSelectElement>("#interval-practice");
+const jazzShorthandEl = requiredElement<HTMLInputElement>("#toggle-jazz-shorthand");
 const playChordsEl = requiredElement<HTMLInputElement>("#toggle-play-chords");
 const loopEl = requiredElement<HTMLInputElement>("#toggle-loop");
 const metronomeEl = requiredElement<HTMLInputElement>("#toggle-metronome");
@@ -265,6 +315,10 @@ const presetSelectEl = requiredElement<HTMLSelectElement>("#preset-select");
 const loadPresetEl = requiredElement<HTMLButtonElement>("#load-preset");
 const downloadPresetEl = requiredElement<HTMLButtonElement>("#download-preset");
 const songPresetSubtitleEl = requiredElement<HTMLSpanElement>("#song-preset-subtitle");
+const builderRootEl = requiredElement<HTMLSelectElement>("#builder-root");
+const builderQualityEl = requiredElement<HTMLSelectElement>("#builder-quality");
+const builderBassEl = requiredElement<HTMLSelectElement>("#builder-bass");
+const builderInsertEl = requiredElement<HTMLButtonElement>("#builder-insert");
 
 const instrumentPresetSelectEl = requiredElement<HTMLSelectElement>("#instrument-preset-select");
 const loadInstrumentPresetEl = requiredElement<HTMLButtonElement>("#load-instrument-preset");
@@ -383,17 +437,271 @@ function getBars(): string[] {
   return splitProgression(state.progressionText);
 }
 
+function splitBarIntoChords(bar: string): string[] {
+  return bar
+    .trim()
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0);
+}
+
+function normalizeChordToken(token: string): string {
+  const clean = token.trim().replace(/♭/g, "b").replace(/♯/g, "#");
+  if (!clean) {
+    return clean;
+  }
+
+  const slashParts = clean.split("/");
+  if (slashParts.length > 2) {
+    return clean;
+  }
+
+  const main = slashParts[0];
+  const mainMatch = main.match(/^([A-Ga-g])([#b]?)(.*)$/);
+  if (!mainMatch) {
+    return clean;
+  }
+
+  const root = `${mainMatch[1].toUpperCase()}${mainMatch[2] || ""}`;
+  let quality = (mainMatch[3] || "").trim().replace(/\s+/g, "");
+  if (state.allowJazzShorthand) {
+    if (quality.startsWith("-")) {
+      quality = `m${quality.slice(1)}`;
+    }
+    if (/^min/i.test(quality)) {
+      quality = `m${quality.slice(3)}`;
+    }
+    if (/^M7$/.test(quality)) {
+      quality = "maj7";
+    }
+  }
+
+  let normalized = `${root}${quality}`;
+  if (slashParts.length === 2) {
+    const bassRaw = slashParts[1].trim();
+    const bassMatch = bassRaw.match(/^([A-Ga-g])([#b]?)$/);
+    normalized += bassMatch ? `/${bassMatch[1].toUpperCase()}${bassMatch[2] || ""}` : `/${bassRaw}`;
+  }
+
+  return normalized;
+}
+
+function suggestChordTokenFixes(rawToken: string): string[] {
+  const suggestions = new Set<string>();
+  const normalized = normalizeChordToken(rawToken);
+  if (normalized !== rawToken.trim()) {
+    suggestions.add(normalized);
+  }
+
+  const slashIdx = normalized.indexOf("/");
+  const main = slashIdx === -1 ? normalized : normalized.slice(0, slashIdx);
+  const slash = slashIdx === -1 ? "" : normalized.slice(slashIdx);
+  const match = main.match(/^([A-G][#b]?)(.*)$/);
+  if (match) {
+    const root = match[1];
+    const quality = match[2];
+    if (quality === "") {
+      suggestions.add(`${root}maj7${slash}`);
+    }
+    if (quality === "m") {
+      suggestions.add(`${root}m7${slash}`);
+    }
+    if (quality.length > 1 && /[A-Za-z]$/.test(quality)) {
+      suggestions.add(`${root}${quality.slice(0, -1)}${slash}`);
+    }
+  }
+
+  return Array.from(suggestions)
+    .filter((candidate) => parseChordSymbol(candidate, { allowJazzShorthand: state.allowJazzShorthand }) !== null)
+    .slice(0, 3);
+}
+
+function validateProgressionBars(): ProgressionBarFeedback[] {
+  const bars = getBars();
+  return bars.map((bar, index) => {
+    const tokens = splitBarIntoChords(bar).map((raw) => {
+      const normalized = normalizeChordToken(raw);
+      const valid = parseChordSymbol(normalized, { allowJazzShorthand: state.allowJazzShorthand }) !== null;
+      return {
+        raw,
+        normalized,
+        valid,
+        suggestions: valid ? [] : suggestChordTokenFixes(raw)
+      };
+    });
+
+    return {
+      index,
+      raw: bar,
+      tokens,
+      valid: tokens.length > 0 && tokens.every((token) => token.valid)
+    };
+  });
+}
+
+function applyProgressionText(nextProgression: string): void {
+  state.progressionText = nextProgression;
+  state.currentBar = 0;
+  state.currentNoteStep = 0;
+  state.lastMidiInLoop = null;
+  state.lastDirectionInLoop = 1;
+  resetGenerationState();
+  render();
+}
+
+function transposeProgressionForInstrumentChange(
+  progressionText: string,
+  fromInstrument: InstrumentMode,
+  toInstrument: InstrumentMode
+): string {
+  const fromSemitones = transposeSemitones(fromInstrument);
+  const toSemitones = transposeSemitones(toInstrument);
+  const delta = toSemitones - fromSemitones;
+  if (delta === 0) {
+    return progressionText;
+  }
+
+  const bars = splitProgression(progressionText);
+  const transposedBars = bars.map((bar) => {
+    const tokens = splitBarIntoChords(bar);
+    if (tokens.length === 0) {
+      return bar;
+    }
+    const nextTokens = tokens.map((token) => {
+      const normalized = normalizeChordToken(token);
+      const parsed = parseChordSymbol(normalized, { allowJazzShorthand: state.allowJazzShorthand });
+      if (!parsed) {
+        return token;
+      }
+      return transposeChordSymbol(normalized, delta);
+    });
+    return nextTokens.join(" ");
+  });
+
+  return transposedBars.join(" | ");
+}
+
+function applyTokenSuggestion(barIndex: number, tokenRaw: string, suggestion: string): void {
+  const bars = getBars();
+  if (barIndex < 0 || barIndex >= bars.length) {
+    return;
+  }
+  const tokens = splitBarIntoChords(bars[barIndex]);
+  const tokenIdx = tokens.findIndex((token) => token === tokenRaw);
+  if (tokenIdx === -1) {
+    return;
+  }
+  tokens[tokenIdx] = suggestion;
+  bars[barIndex] = tokens.join(" ");
+  applyProgressionText(bars.join(" | "));
+}
+
+function renderProgressionFeedback(): void {
+  const bars = validateProgressionBars();
+  progressionFeedbackEl.innerHTML = "";
+
+  if (bars.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "Add bars using |. Example: G | Em7 A7 | D7 | G";
+    progressionFeedbackEl.appendChild(empty);
+    return;
+  }
+
+  const invalidBars = bars.filter((bar) => !bar.valid).length;
+  const summary = document.createElement("p");
+  summary.className = invalidBars === 0 ? "feedback-summary valid" : "feedback-summary invalid";
+  summary.textContent = invalidBars === 0
+    ? `Progression looks good (${bars.length} bars).`
+    : `${invalidBars} bar${invalidBars === 1 ? "" : "s"} need attention.`;
+  progressionFeedbackEl.appendChild(summary);
+
+  const chips = document.createElement("div");
+  chips.className = "bar-chip-list";
+
+  for (const bar of bars) {
+    const chip = document.createElement("div");
+    chip.className = `bar-chip ${bar.valid ? "is-valid" : "is-invalid"}`;
+    const label = document.createElement("p");
+    label.className = "bar-chip-title";
+    label.textContent = `Bar ${bar.index + 1}: ${bar.raw}`;
+    chip.appendChild(label);
+
+    if (!bar.valid) {
+      for (const token of bar.tokens) {
+        if (token.valid) {
+          continue;
+        }
+        const tokenRow = document.createElement("div");
+        tokenRow.className = "token-suggestion-row";
+        const hint = document.createElement("span");
+        hint.textContent = `Invalid: ${token.raw}`;
+        tokenRow.appendChild(hint);
+
+        for (const suggestion of token.suggestions) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "token-fix-btn";
+          btn.textContent = suggestion;
+          btn.addEventListener("click", () => {
+            applyTokenSuggestion(bar.index, token.raw, suggestion);
+          });
+          tokenRow.appendChild(btn);
+        }
+
+        if (token.suggestions.length === 0) {
+          const noSuggestion = document.createElement("span");
+          noSuggestion.className = "muted";
+          noSuggestion.textContent = "No automatic suggestion";
+          tokenRow.appendChild(noSuggestion);
+        }
+
+        chip.appendChild(tokenRow);
+      }
+    }
+
+    chips.appendChild(chip);
+  }
+
+  progressionFeedbackEl.appendChild(chips);
+}
+
+function insertBuilderChord(): void {
+  const root = builderRootEl.value;
+  const quality = builderQualityEl.value;
+  const bass = builderBassEl.value;
+  const chord = `${root}${quality}${bass ? `/${bass}` : ""}`;
+  const start = progressionEl.selectionStart ?? progressionEl.value.length;
+  const end = progressionEl.selectionEnd ?? start;
+  const source = progressionEl.value;
+  const before = source.slice(0, start);
+  const after = source.slice(end);
+  const needsLeadingSpace = before.length > 0 && !/[\s|]$/.test(before);
+  const needsTrailingSpace = after.length > 0 && !/^[\s|]/.test(after);
+
+  const next = `${before}${needsLeadingSpace ? " " : ""}${chord}${needsTrailingSpace ? " " : ""}${after}`;
+  applyProgressionText(next);
+
+  window.requestAnimationFrame(() => {
+    progressionEl.focus();
+  });
+}
+
 function getDisplayBarsBase(): DisplayBar[] {
   const bars = getBars();
   const semitones = transposeSemitones(state.instrument);
 
   const displayBars: DisplayBar[] = bars.map((bar, idx) => {
-    const parsed = parseChordSymbol(bar);
-    if (!parsed) {
+    const writtenTokens = splitBarIntoChords(bar).map((token) => normalizeChordToken(token));
+    const concertTokens = writtenTokens.map((token) => transposeChordSymbol(token, -semitones));
+    const parsedTokens = concertTokens.map((token) => parseChordSymbol(token, { allowJazzShorthand: state.allowJazzShorthand }));
+    const firstParsed = parsedTokens.find((parsed) => parsed !== null);
+
+    if (!firstParsed || parsedTokens.some((parsed) => parsed === null)) {
       return {
         index: idx,
-        originalChord: bar,
-        chord: bar,
+        originalChord: concertTokens.join(" "),
+        chord: writtenTokens.join(" "),
         scaleName: "Unknown",
         notes: [] as string[],
         valid: false,
@@ -401,15 +709,17 @@ function getDisplayBarsBase(): DisplayBar[] {
       };
     }
 
-    const preferFlats = parsed.root.includes("b");
-    const notes = buildScale(parsed.root, parsed.scaleIntervals, semitones, preferFlats);
-    const chord = transposeChordSymbol(bar, semitones);
+    // Chord input is interpreted in the currently selected instrument key.
+    // Convert to concert pitch for internal scale/audio generation.
+    const preferFlats = firstParsed.root.includes("b");
+    const notes = buildScale(firstParsed.root, firstParsed.scaleIntervals, 0, preferFlats);
+    const scaleName = Array.from(new Set(parsedTokens.map((parsed) => (parsed as NonNullable<typeof parsed>).scaleMode))).join(" → ");
 
     return {
       index: idx,
-      originalChord: bar,
-      chord,
-      scaleName: parsed.scaleMode,
+      originalChord: concertTokens.join(" "),
+      chord: writtenTokens.join(" "),
+      scaleName,
       notes,
       valid: true,
       lineNotes: []
@@ -422,6 +732,7 @@ function getDisplayBarsBase(): DisplayBar[] {
 function getGenerationCacheKey(): string {
   return [
     state.progressionText,
+    state.allowJazzShorthand,
     state.instrument,
     state.notesPerBar,
     state.lowerMidi,
@@ -541,28 +852,13 @@ function mod12(value: number): number {
 }
 
 function findTonicStartMidi(tonicPc: number, low: number, high: number): number {
-  const tonicCandidates: number[] = [];
   for (let midi = low; midi <= high; midi += 1) {
     if (mod12(midi) === tonicPc) {
-      tonicCandidates.push(midi);
+      return midi;
     }
   }
 
-  if (tonicCandidates.length === 0) {
-    return low;
-  }
-
-  const center = (low + high) / 2;
-  let best = tonicCandidates[0];
-  let bestDistance = Math.abs(best - center);
-  for (const candidate of tonicCandidates) {
-    const distance = Math.abs(candidate - center);
-    if (distance < bestDistance) {
-      best = candidate;
-      bestDistance = distance;
-    }
-  }
-  return best;
+  return low;
 }
 
 function buildScaleMidisInRange(pcs: number[], low: number, high: number): number[] {
@@ -611,13 +907,28 @@ function findNextMidiByInterval(currentMidi: number, scaleMidis: number[], inter
 }
 
 function playBarAudio(bar: string): void {
-  const parsed = parseChordSymbol(bar);
-  if (!parsed || !polySynth) {
+  if (!polySynth) {
     return;
   }
-  const notes = buildChordTones(parsed.root, parsed.chordIntervals, 3);
-  const duration = (60 / state.bpm) * 4 * 0.95;
-  polySynth.triggerAttackRelease(notes, duration, Tone.now());
+  const activePolySynth = polySynth;
+
+  const chords = splitBarIntoChords(bar);
+  if (chords.length === 0) {
+    return;
+  }
+
+  const totalDuration = (60 / state.bpm) * 4 * 0.95;
+  const perChordDuration = totalDuration / chords.length;
+  const startTime = Tone.now();
+
+  chords.forEach((chord, idx) => {
+    const parsed = parseChordSymbol(chord, { allowJazzShorthand: state.allowJazzShorthand });
+    if (!parsed) {
+      return;
+    }
+    const notes = buildChordTones(parsed.root, parsed.chordIntervals, 3);
+    activePolySynth.triggerAttackRelease(notes, perChordDuration * 0.95, startTime + idx * perChordDuration);
+  });
 }
 
 function triggerMetronome(): void {
@@ -849,6 +1160,7 @@ async function loadPresetsFromPublic(): Promise<void> {
           author: (data.author as string) || undefined,
           email: (data.email as string) || undefined,
           progression: (data.progression as string) || "Cmaj7",
+          allowJazzShorthand: (data.allowJazzShorthand as boolean) ?? true,
           bpm: (data.bpm as number) || 100,
           playChords: (data.playChords as boolean) ?? true,
           loop: (data.loop as boolean) ?? true,
@@ -956,6 +1268,7 @@ function refreshPresetSelect(): void {
 
 function applyPreset(preset: Preset): void {
   state.progressionText = preset.progression;
+  state.allowJazzShorthand = preset.allowJazzShorthand ?? true;
   state.bpm = preset.bpm;
   state.playChords = preset.playChords;
   state.loop = preset.loop;
@@ -984,6 +1297,7 @@ function savePreset(): void {
     id,
     name,
     progression: state.progressionText,
+    allowJazzShorthand: state.allowJazzShorthand,
     bpm: state.bpm,
     playChords: state.playChords,
     loop: state.loop,
@@ -1016,6 +1330,7 @@ function downloadPreset(): void {
 author: ""
 email: ""
 progression: ${preset.progression}
+allowJazzShorthand: ${preset.allowJazzShorthand ?? true}
 bpm: ${preset.bpm}
 playChords: ${preset.playChords}
 loop: ${preset.loop}
@@ -1069,6 +1384,20 @@ function buildScrollingWindow<T extends { index: number }>(bars: T[], currentInd
   return result;
 }
 
+function getResponsiveBarWidth(): number {
+  const viewport = window.innerWidth;
+  if (viewport <= 430) {
+    return 132;
+  }
+  if (viewport <= 640) {
+    return 148;
+  }
+  if (viewport <= 900) {
+    return 168;
+  }
+  return 185;
+}
+
 function renderStaff(bars: DisplayBar[], currentBarIndex: number, currentStep: number): void {
   if (bars.length === 0) {
     scrollingSheetEl.innerHTML = `<p class="muted">No bars to show on staff.</p>`;
@@ -1081,8 +1410,10 @@ function renderStaff(bars: DisplayBar[], currentBarIndex: number, currentStep: n
   notationHost.id = "sheet-notation-container";
   scrollingSheetEl.appendChild(notationHost);
 
-  const barWidth = 185;
-  const width = Math.max(760, bars.length * barWidth + 24);
+  const barWidth = getResponsiveBarWidth();
+  const availableWidth = Math.max(320, scrollingSheetEl.clientWidth || window.innerWidth - 24);
+  const minWidth = Math.max(500, availableWidth - 8);
+  const width = Math.max(minWidth, bars.length * barWidth + 24);
   const height = 220;
 
   const renderer = new Renderer(notationHost, Renderer.Backends.SVG);
@@ -1111,10 +1442,10 @@ function renderStaff(bars: DisplayBar[], currentBarIndex: number, currentStep: n
   });
 
   // Scroll to keep current note centered in viewport
-  scrollToCurrentNote(bars, currentBarIndex, currentStep);
+  scrollToCurrentNote(bars, currentBarIndex, currentStep, barWidth);
 }
 
-function scrollToCurrentNote(bars: DisplayBar[], currentBarIndex: number, currentStep: number): void {
+function scrollToCurrentNote(bars: DisplayBar[], currentBarIndex: number, currentStep: number, barWidth: number): void {
   if (!scrollingSheetEl) {
     return;
   }
@@ -1128,9 +1459,8 @@ function scrollToCurrentNote(bars: DisplayBar[], currentBarIndex: number, curren
     }
   }
 
-  const barWidth = 185;
   const noteSpacing = barWidth / state.notesPerBar;
-  const clefOffset = 40; // clef width on first bar
+  const clefOffset = Math.max(30, Math.round(barWidth * 0.22));
   
   // Position of the bar on screen (based on actual position in rendered window)
   const barXInWindow = 12 + currentBarWindowPosition * barWidth;
@@ -1283,6 +1613,7 @@ function downloadMidi(data: Uint8Array, filename: string): void {
 
 function render(): void {
   progressionEl.value = state.progressionText;
+  jazzShorthandEl.checked = state.allowJazzShorthand;
   bpmEl.value = String(state.bpm);
   instrumentEl.value = state.instrument;
   notesPerBarEl.value = String(state.notesPerBar);
@@ -1306,17 +1637,16 @@ function render(): void {
   if (selectedOption && selectedOption.value) {
     songPresetSubtitleEl.textContent = selectedOption.textContent ?? "";
   }
+  renderProgressionFeedback();
   renderProgression();
 }
 
 progressionEl.addEventListener("input", () => {
-  state.progressionText = progressionEl.value;
-  state.currentBar = 0;
-  state.currentNoteStep = 0;
-  state.lastMidiInLoop = null;
-  state.lastDirectionInLoop = 1;
-  resetGenerationState();
-  render();
+  applyProgressionText(progressionEl.value);
+});
+
+builderInsertEl.addEventListener("click", () => {
+  insertBuilderChord();
 });
 
 bpmEl.addEventListener("input", () => {
@@ -1331,9 +1661,22 @@ bpmEl.addEventListener("input", () => {
 });
 
 instrumentEl.addEventListener("change", () => {
-  state.instrument = instrumentEl.value as InstrumentMode;
-  resetGenerationState();
-  render();
+  const previousInstrument = state.instrument;
+  const nextInstrument = instrumentEl.value as InstrumentMode;
+  if (nextInstrument === previousInstrument) {
+    return;
+  }
+
+  state.instrument = nextInstrument;
+  const transposedProgression = transposeProgressionForInstrumentChange(
+    state.progressionText,
+    previousInstrument,
+    nextInstrument
+  );
+  applyProgressionText(transposedProgression);
+  if (state.isPlaying) {
+    startLoop().catch(() => undefined);
+  }
 });
 
 notesPerBarEl.addEventListener("input", () => {
@@ -1353,6 +1696,20 @@ notesPerBarEl.addEventListener("input", () => {
 
 intervalPracticeEl.addEventListener("change", () => {
   state.intervalPractice = intervalPracticeEl.value as IntervalPractice;
+  state.currentBar = 0;
+  state.currentNoteStep = 0;
+  state.lastMidiInLoop = null;
+  state.lastDirectionInLoop = 1;
+  resetGenerationState();
+  if (state.isPlaying) {
+    startLoop().catch(() => undefined);
+  }
+  render();
+});
+
+jazzShorthandEl.addEventListener("change", () => {
+  state.allowJazzShorthand = jazzShorthandEl.checked;
+  state.currentBar = 0;
   state.currentNoteStep = 0;
   state.lastMidiInLoop = null;
   state.lastDirectionInLoop = 1;

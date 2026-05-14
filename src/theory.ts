@@ -4,6 +4,7 @@ export type InstrumentMode = "concert" | "bb" | "eb";
 
 export interface ParsedChord {
   root: string;
+  bass: string | null;
   quality: string;
   normalizedQuality: string;
   scaleMode: ScaleMode;
@@ -45,43 +46,95 @@ interface Mapping {
   scaleIntervals: number[];
 }
 
+interface ParseOptions {
+  allowJazzShorthand?: boolean;
+}
+
 const CHORD_MAPPINGS: Mapping[] = [
   {
-    matcher: (q) => q.startsWith("maj7") || q.startsWith("mmaj7") || q.startsWith("M7"),
+    matcher: (q) => q === "",
+    normalized: "maj",
+    scaleMode: "Ionian",
+    chordIntervals: [0, 4, 7],
+    scaleIntervals: [0, 2, 4, 5, 7, 9, 11]
+  },
+  {
+    matcher: (q) => q.startsWith("maj7") || q.startsWith("mmaj7"),
     normalized: "maj7",
     scaleMode: "Ionian",
     chordIntervals: [0, 4, 7, 11],
     scaleIntervals: [0, 2, 4, 5, 7, 9, 11]
   },
   {
-    matcher: (q) => q.includes("m7b5") || q.includes("m7(b5)") || q.includes("ø7"),
+    matcher: (q) => q === "m7b5" || q === "m7(b5)" || q === "ø" || q === "ø7",
     normalized: "m7b5",
     scaleMode: "Locrian",
     chordIntervals: [0, 3, 6, 10],
     scaleIntervals: [0, 1, 3, 5, 6, 8, 10]
   },
   {
-    matcher: (q) => q.includes("dim7") || q.includes("o7"),
+    matcher: (q) => q === "dim" || q === "dim7" || q === "o" || q === "o7",
     normalized: "dim7",
     scaleMode: "Whole-half diminished",
     chordIntervals: [0, 3, 6, 9],
     scaleIntervals: [0, 2, 3, 5, 6, 8, 9, 11]
   },
   {
-    matcher: (q) => q.startsWith("m7") || q.startsWith("-7"),
+    matcher: (q) => q === "m" || q.startsWith("m6") || q.startsWith("m7") || q.startsWith("m9") || q.startsWith("m11") || q.startsWith("m13"),
     normalized: "m7",
     scaleMode: "Dorian",
     chordIntervals: [0, 3, 7, 10],
     scaleIntervals: [0, 2, 3, 5, 7, 9, 10]
   },
   {
-    matcher: (q) => q === "7" || q.startsWith("7") || q.includes("13") || q.includes("9"),
+    matcher: (q) => q === "6" || q === "maj6" || q.startsWith("6/9"),
+    normalized: "6",
+    scaleMode: "Ionian",
+    chordIntervals: [0, 4, 7, 9],
+    scaleIntervals: [0, 2, 4, 5, 7, 9, 11]
+  },
+  {
+    matcher: (q) => q === "7" || q.startsWith("7") || q.startsWith("9") || q.startsWith("11") || q.startsWith("13"),
     normalized: "7",
     scaleMode: "Mixolydian",
     chordIntervals: [0, 4, 7, 10],
     scaleIntervals: [0, 2, 4, 5, 7, 9, 10]
   }
 ];
+
+function normalizeAccidental(value: string): string {
+  return value.replace(/♭/g, "b").replace(/♯/g, "#");
+}
+
+function normalizeQuality(value: string, allowJazzShorthand: boolean): string {
+  let quality = value.replace(/\s+/g, "").replace(/Δ/g, "maj");
+  if (!quality) {
+    return quality;
+  }
+
+  if (allowJazzShorthand) {
+    if (quality.startsWith("-")) {
+      quality = `m${quality.slice(1)}`;
+    }
+    if (/^min/i.test(quality)) {
+      quality = `m${quality.slice(3)}`;
+    }
+    if (/^M7$/.test(quality)) {
+      quality = "maj7";
+    }
+  }
+
+  return quality;
+}
+
+function hasJazzAlias(qualityRaw: string): boolean {
+  return /^-/.test(qualityRaw)
+    || /^min/i.test(qualityRaw)
+    || qualityRaw.includes("ø")
+    || qualityRaw.includes("o")
+    || qualityRaw.includes("Δ")
+    || qualityRaw === "M7";
+}
 
 function canonicalRoot(raw: string): string | null {
   const normalized = raw.replace(/\s+/g, "");
@@ -122,34 +175,40 @@ export function transposeNote(note: string, semitones: number, preferFlats = fal
   return noteFromIndex(idx + semitones, preferFlats);
 }
 
-export function parseChordSymbol(symbol: string): ParsedChord | null {
+export function parseChordSymbol(symbol: string, options: ParseOptions = {}): ParsedChord | null {
+  const allowJazzShorthand = options.allowJazzShorthand ?? true;
   const clean = symbol.trim();
   if (!clean) {
     return null;
   }
 
-  const match = clean.match(/^([A-Ga-g])([#b]?)(.*)$/);
+  const match = clean.match(/^([A-Ga-g])([#b♭♯]?)([^/]*)?(?:\/([A-Ga-g])([#b♭♯]?))?$/);
   if (!match) {
     return null;
   }
 
-  const rootRaw = `${match[1].toUpperCase()}${match[2] || ""}`;
+  const rootRaw = `${match[1].toUpperCase()}${normalizeAccidental(match[2] || "")}`;
   const root = canonicalRoot(rootRaw);
   if (!root) {
     return null;
   }
 
   const qualityRaw = (match[3] || "").trim();
-  const quality = qualityRaw.replace(/\s+/g, "");
-
-  let chosen = CHORD_MAPPINGS.find((entry) => entry.matcher(quality));
-  if (!chosen) {
-    if (quality.startsWith("m") || quality.startsWith("-")) {
-      chosen = CHORD_MAPPINGS.find((entry) => entry.normalized === "m7");
-    } else {
-      chosen = CHORD_MAPPINGS.find((entry) => entry.normalized === "maj7");
-    }
+  if (!allowJazzShorthand && hasJazzAlias(qualityRaw)) {
+    return null;
   }
+  const quality = normalizeQuality(qualityRaw, allowJazzShorthand);
+
+  const bassRaw = match[4]
+    ? `${match[4].toUpperCase()}${normalizeAccidental(match[5] || "")}`
+    : null;
+  const bass = bassRaw ? canonicalRoot(bassRaw) : null;
+  if (bassRaw && !bass) {
+    return null;
+  }
+
+  const qualityKey = quality.toLowerCase();
+  const chosen = CHORD_MAPPINGS.find((entry) => entry.matcher(qualityKey));
 
   if (!chosen) {
     return null;
@@ -157,7 +216,8 @@ export function parseChordSymbol(symbol: string): ParsedChord | null {
 
   return {
     root,
-    quality: qualityRaw,
+    bass,
+    quality,
     normalizedQuality: chosen.normalized,
     scaleMode: chosen.scaleMode,
     chordIntervals: chosen.chordIntervals,
@@ -201,13 +261,17 @@ function midiToToneNote(midi: number): string {
 }
 
 export function transposeChordSymbol(symbol: string, semitones: number): string {
-  const parsed = parseChordSymbol(symbol);
+  const parsed = parseChordSymbol(symbol, { allowJazzShorthand: true });
   if (!parsed) {
     return symbol;
   }
   const preferFlats = parsed.root.includes("b");
   const transposedRoot = transposeNote(parsed.root, semitones, preferFlats);
-  return `${transposedRoot}${parsed.quality}`;
+  if (!parsed.bass) {
+    return `${transposedRoot}${parsed.quality}`;
+  }
+  const transposedBass = transposeNote(parsed.bass, semitones, preferFlats);
+  return `${transposedRoot}${parsed.quality}/${transposedBass}`;
 }
 
 export function splitProgression(input: string): string[] {

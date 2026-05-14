@@ -80,6 +80,97 @@ textarea {
   resize: vertical;
 }
 
+.progression-hint {
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.progression-feedback {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+  display: grid;
+  gap: 8px;
+}
+
+.feedback-summary {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.feedback-summary.valid {
+  color: var(--accent-2);
+}
+
+.feedback-summary.invalid {
+  color: var(--danger);
+}
+
+.bar-chip-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.bar-chip {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  background: #fffcf6;
+  display: grid;
+  gap: 6px;
+}
+
+.bar-chip.is-valid {
+  border-color: #98c4c4;
+  background: #f4fbfb;
+}
+
+.bar-chip.is-invalid {
+  border-color: #d8a4a4;
+  background: #fff4f4;
+}
+
+.bar-chip-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.token-suggestion-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.token-fix-btn {
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 0.8rem;
+}
+
+.chord-builder {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+  display: grid;
+  gap: 8px;
+}
+
+.chord-builder-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(90px, 1fr) minmax(110px, 1fr) minmax(120px, 1fr) auto;
+}
+
 .grid {
   display: grid;
   gap: 10px;
@@ -100,6 +191,7 @@ textarea {
 .instrument-panel-summary {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   padding: 14px;
   cursor: pointer;
@@ -129,6 +221,7 @@ details[open].instrument-panel .instrument-panel-summary::before {
   font-size: 0.85rem;
   font-weight: 400;
   color: var(--muted);
+  text-align: right;
 }
 
 .instrument-panel-body {
@@ -139,12 +232,19 @@ details[open].instrument-panel .instrument-panel-summary::before {
 
 .instrument-presets-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
 
 .instrument-presets-row select {
   flex: 1;
+  min-width: 180px;
+}
+
+.instrument-presets-row button,
+.instrument-presets-row input {
+  min-width: 120px;
 }
 
 .pitch-limits-panel {
@@ -280,6 +380,7 @@ button:disabled {
   overflow-x: auto;
   padding-bottom: 4px;
   scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sheet-notation {
@@ -370,9 +471,76 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .controls-grid,
+  .toggles-grid,
+  .bar-chip-list,
+  .progression-view {
+    grid-template-columns: 1fr;
+  }
+
+  .instrument-panel-summary {
+    align-items: flex-start;
+  }
+
+  .instrument-panel-subtitle {
+    text-align: left;
+    max-width: 100%;
+  }
+
+  .instrument-presets-row > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sheet-header {
+    align-items: stretch;
+  }
+
+  .buttons-row {
+    width: 100%;
+  }
+
+  .buttons-row button {
+    flex: 1 1 calc(50% - 8px);
+  }
+
+  .sheet-notation {
+    min-width: 540px;
+  }
+
+  .chord-builder-row {
+    grid-template-columns: 1fr;
+  }
+
   .side-adjuster {
     grid-auto-flow: column;
     justify-content: center;
     align-items: center;
+  }
+}
+
+@media (max-width: 430px) {
+  .app-shell {
+    padding: 12px 10px 24px;
+  }
+
+  .panel,
+  .instrument-panel-summary,
+  .instrument-panel-body {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .buttons-row button {
+    flex-basis: 100%;
+  }
+
+  .token-suggestion-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .sheet-notation {
+    min-width: 500px;
   }
 }
