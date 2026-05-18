@@ -41,6 +41,74 @@ body {
   color: var(--muted);
 }
 
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.settings-toggle {
+  align-self: flex-start;
+  background: #fff;
+  border-color: var(--border);
+  white-space: nowrap;
+}
+
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 14, 8, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+  z-index: 19;
+}
+
+.settings-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.settings-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(700px, 96vw);
+  height: 100dvh;
+  background: linear-gradient(180deg, var(--surface), var(--surface-2));
+  border-left: 1px solid var(--border);
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  overflow-y: auto;
+  transform: translateX(102%);
+  transition: transform 220ms ease;
+  z-index: 20;
+}
+
+.settings-drawer.is-open {
+  transform: translateX(0);
+}
+
+.settings-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 2px 4px;
+}
+
+.settings-drawer-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+body.settings-open {
+  overflow: hidden;
+}
+
 .panel {
   background: linear-gradient(180deg, var(--surface), var(--surface-2));
   border: 1px solid var(--border);
@@ -459,6 +527,15 @@ button:disabled {
     padding: 16px 12px 30px;
   }
 
+  .top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .settings-toggle {
+    width: 100%;
+  }
+
   .top h1 {
     font-size: 1.6rem;
   }
@@ -516,6 +593,11 @@ button:disabled {
     grid-auto-flow: column;
     justify-content: center;
     align-items: center;
+  }
+
+  .settings-drawer {
+    width: 100vw;
+    padding: 10px;
   }
 }
 

@@ -142,136 +142,147 @@ function requiredElement<T extends HTMLElement>(selector: string): T {
 root.innerHTML = `
   <main class="app-shell">
     <header class="top">
-      <h1>Big Scale Trainer</h1>
-      <p>Practice scales bar-by-bar over looping harmony.</p>
+      <div>
+        <h1>Big Scale Trainer</h1>
+        <p>Practice scales bar-by-bar over looping harmony.</p>
+      </div>
+      <button id="open-settings" class="settings-toggle" type="button" aria-expanded="false">Settings</button>
     </header>
 
-    <details class="panel instrument-panel" id="instrument-panel">
-      <summary class="instrument-panel-summary">
-        <span>Instrument</span>
-        <span id="instrument-panel-subtitle" class="instrument-panel-subtitle"></span>
-      </summary>
+    <div id="settings-backdrop" class="settings-backdrop" aria-hidden="true"></div>
+    <aside id="settings-drawer" class="settings-drawer" aria-hidden="true">
+      <div class="settings-drawer-header">
+        <h2>Settings</h2>
+        <button id="close-settings" type="button">Close</button>
+      </div>
 
-      <div class="instrument-panel-body">
-        <div class="grid controls-grid">
-          <label>
-            Transposition key
-            <select id="instrument">
-              <option value="concert">Concert (C)</option>
-              <option value="bb">Bb instrument</option>
-              <option value="eb">Eb instrument</option>
-            </select>
-          </label>
-        </div>
+      <details class="panel instrument-panel" id="instrument-panel" open>
+        <summary class="instrument-panel-summary">
+          <span>Instrument</span>
+          <span id="instrument-panel-subtitle" class="instrument-panel-subtitle"></span>
+        </summary>
 
-        <div class="pitch-limits-panel" aria-label="Pitch range controls">
-          <span class="limit-title">Pitch range</span>
-          <div class="range-layout">
-            <div class="side-adjuster" aria-label="Low note adjustments">
-              <button id="lower-up" type="button" class="arrow-btn" aria-label="Raise low note">▲</button>
-              <span id="lower-label" class="limit-label"></span>
-              <button id="lower-down" type="button" class="arrow-btn" aria-label="Lower low note">▼</button>
-            </div>
-            <div id="range-staff" class="mini-staff" aria-hidden="true"></div>
-            <div class="side-adjuster" aria-label="High note adjustments">
-              <button id="upper-up" type="button" class="arrow-btn" aria-label="Raise high note">▲</button>
-              <span id="upper-label" class="limit-label"></span>
-              <button id="upper-down" type="button" class="arrow-btn" aria-label="Lower high note">▼</button>
+        <div class="instrument-panel-body">
+          <div class="grid controls-grid">
+            <label>
+              Transposition key
+              <select id="instrument">
+                <option value="concert">Concert (C)</option>
+                <option value="bb">Bb instrument</option>
+                <option value="eb">Eb instrument</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="pitch-limits-panel" aria-label="Pitch range controls">
+            <span class="limit-title">Pitch range</span>
+            <div class="range-layout">
+              <div class="side-adjuster" aria-label="Low note adjustments">
+                <button id="lower-up" type="button" class="arrow-btn" aria-label="Raise low note">▲</button>
+                <span id="lower-label" class="limit-label"></span>
+                <button id="lower-down" type="button" class="arrow-btn" aria-label="Lower low note">▼</button>
+              </div>
+              <div id="range-staff" class="mini-staff" aria-hidden="true"></div>
+              <div class="side-adjuster" aria-label="High note adjustments">
+                <button id="upper-up" type="button" class="arrow-btn" aria-label="Raise high note">▲</button>
+                <span id="upper-label" class="limit-label"></span>
+                <button id="upper-down" type="button" class="arrow-btn" aria-label="Lower high note">▼</button>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="instrument-presets-row">
-          <select id="instrument-preset-select"></select>
-          <button id="load-instrument-preset">Apply</button>
-        </div>
-      </div>
-    </details>
-
-    <details class="panel instrument-panel" id="song-preset-panel">
-      <summary class="instrument-panel-summary">
-        <span>Song</span>
-        <span id="song-preset-subtitle" class="instrument-panel-subtitle"></span>
-      </summary>
-      <div class="instrument-panel-body">
-        <label for="progression">Chord progression (one chord per bar, separated by |)</label>
-        <textarea id="progression" rows="3"></textarea>
-        <p class="progression-hint">Examples: G | Em7 A7 | Am7b5/D# | B7#5. Input is in your selected instrument key.</p>
-        <div id="progression-feedback" class="progression-feedback" aria-live="polite"></div>
-
-        <div class="chord-builder" aria-label="Quick chord builder">
-          <span class="limit-title">Quick insert</span>
-          <div class="chord-builder-row">
-            <select id="builder-root" aria-label="Chord root">
-              <option>C</option><option>C#</option><option>Db</option><option>D</option><option>Eb</option><option>E</option>
-              <option>F</option><option>F#</option><option>Gb</option><option>G</option><option>Ab</option><option>A</option>
-              <option>Bb</option><option>B</option>
-            </select>
-            <select id="builder-quality" aria-label="Chord quality">
-              <option value="">major</option>
-              <option value="maj7">maj7</option>
-              <option value="6">6</option>
-              <option value="7">7</option>
-              <option value="7#5">7#5</option>
-              <option value="m7">m7</option>
-              <option value="m7b5">m7b5</option>
-              <option value="dim7">dim7</option>
-            </select>
-            <select id="builder-bass" aria-label="Slash bass">
-              <option value="">No slash bass</option>
-              <option>C</option><option>C#</option><option>Db</option><option>D</option><option>Eb</option><option>E</option>
-              <option>F</option><option>F#</option><option>Gb</option><option>G</option><option>Ab</option><option>A</option>
-              <option>Bb</option><option>B</option>
-            </select>
-            <button id="builder-insert" type="button">Insert chord</button>
+          <div class="instrument-presets-row">
+            <select id="instrument-preset-select"></select>
+            <button id="load-instrument-preset">Apply</button>
           </div>
         </div>
+      </details>
 
-        <div class="grid controls-grid">
-          <label>
-            BPM
-            <input id="bpm" type="number" min="40" max="300" step="1" />
-          </label>
+      <details class="panel instrument-panel" id="song-preset-panel" open>
+        <summary class="instrument-panel-summary">
+          <span>Song</span>
+          <span id="song-preset-subtitle" class="instrument-panel-subtitle"></span>
+        </summary>
+        <div class="instrument-panel-body">
+          <label for="progression">Chord progression (one chord per bar, separated by |)</label>
+          <textarea id="progression" rows="3"></textarea>
+          <p class="progression-hint">Examples: G | Em7 A7 | Am7b5/D# | B7#5. Input is in your selected instrument key.</p>
+          <div id="progression-feedback" class="progression-feedback" aria-live="polite"></div>
 
-          <label>
-            Notes per bar
-            <input id="notes-per-bar" type="number" min="2" max="8" step="1" />
-          </label>
+          <div class="chord-builder" aria-label="Quick chord builder">
+            <span class="limit-title">Quick insert</span>
+            <div class="chord-builder-row">
+              <select id="builder-root" aria-label="Chord root">
+                <option>C</option><option>C#</option><option>Db</option><option>D</option><option>Eb</option><option>E</option>
+                <option>F</option><option>F#</option><option>Gb</option><option>G</option><option>Ab</option><option>A</option>
+                <option>Bb</option><option>B</option>
+              </select>
+              <select id="builder-quality" aria-label="Chord quality">
+                <option value="">major</option>
+                <option value="maj7">maj7</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="7#5">7#5</option>
+                <option value="m7">m7</option>
+                <option value="m7b5">m7b5</option>
+                <option value="dim7">dim7</option>
+              </select>
+              <select id="builder-bass" aria-label="Slash bass">
+                <option value="">No slash bass</option>
+                <option>C</option><option>C#</option><option>Db</option><option>D</option><option>Eb</option><option>E</option>
+                <option>F</option><option>F#</option><option>Gb</option><option>G</option><option>Ab</option><option>A</option>
+                <option>Bb</option><option>B</option>
+              </select>
+              <button id="builder-insert" type="button">Insert chord</button>
+            </div>
+          </div>
 
-          <label>
-            Interval practice
-            <select id="interval-practice">
-              <option value="seconds">2nds (stepwise)</option>
-              <option value="thirds">3rds</option>
-              <option value="fourths">4ths</option>
-              <option value="fifths">5ths</option>
-              <option value="sixths">6ths</option>
-              <option value="sevenths">7ths</option>
-              <option value="octaves">Octaves</option>
-            </select>
-          </label>
+          <div class="grid controls-grid">
+            <label>
+              BPM
+              <input id="bpm" type="number" min="40" max="300" step="1" />
+            </label>
+
+            <label>
+              Notes per bar
+              <input id="notes-per-bar" type="number" min="2" max="8" step="1" />
+            </label>
+
+            <label>
+              Interval practice
+              <select id="interval-practice">
+                <option value="seconds">2nds (stepwise)</option>
+                <option value="thirds">3rds</option>
+                <option value="fourths">4ths</option>
+                <option value="fifths">5ths</option>
+                <option value="sixths">6ths</option>
+                <option value="sevenths">7ths</option>
+                <option value="octaves">Octaves</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="grid toggles-grid">
+            <label><input id="toggle-jazz-shorthand" type="checkbox" /> Jazz shorthand aliases</label>
+            <label><input id="toggle-play-chords" type="checkbox" /> Play chords</label>
+            <label><input id="toggle-loop" type="checkbox" /> Loop</label>
+            <label><input id="toggle-metronome" type="checkbox" /> Metronome</label>
+          </div>
+
+          <div class="instrument-presets-row">
+            <select id="preset-select"></select>
+            <button id="load-preset">Apply</button>
+            <button id="download-preset">Download</button>
+          </div>
+          <div class="instrument-presets-row">
+            <input id="preset-name" type="text" placeholder="Save current as…" />
+            <button id="save-preset">Save</button>
+          </div>
         </div>
+      </details>
+    </aside>
 
-        <div class="grid toggles-grid">
-          <label><input id="toggle-jazz-shorthand" type="checkbox" /> Jazz shorthand aliases</label>
-          <label><input id="toggle-play-chords" type="checkbox" /> Play chords</label>
-          <label><input id="toggle-loop" type="checkbox" /> Loop</label>
-          <label><input id="toggle-metronome" type="checkbox" /> Metronome</label>
-        </div>
-
-        <div class="instrument-presets-row">
-          <select id="preset-select"></select>
-          <button id="load-preset">Apply</button>
-          <button id="download-preset">Download</button>
-        </div>
-        <div class="instrument-presets-row">
-          <input id="preset-name" type="text" placeholder="Save current as…" />
-          <button id="save-preset">Save</button>
-        </div>
-      </div>
-    </details>
-
-    <section class="panel sheet-panel">
+    <section class="panel sheet-panel" id="sheet-panel">
       <div class="sheet-header">
         <h2>Practice Sheet</h2>
         <div class="row buttons-row">
@@ -306,8 +317,13 @@ const upperLabelEl = requiredElement<HTMLSpanElement>("#upper-label");
 const playPauseEl = requiredElement<HTMLButtonElement>("#play-pause");
 const resetEl = requiredElement<HTMLButtonElement>("#reset");
 const exportMidiEl = requiredElement<HTMLButtonElement>("#export-midi");
+const openSettingsEl = requiredElement<HTMLButtonElement>("#open-settings");
+const closeSettingsEl = requiredElement<HTMLButtonElement>("#close-settings");
+const settingsDrawerEl = requiredElement<HTMLElement>("#settings-drawer");
+const settingsBackdropEl = requiredElement<HTMLDivElement>("#settings-backdrop");
 
 const scrollingSheetEl = requiredElement<HTMLDivElement>("#scrolling-sheet");
+const sheetPanelEl = requiredElement<HTMLElement>("#sheet-panel");
 
 const presetNameEl = requiredElement<HTMLInputElement>("#preset-name");
 const savePresetEl = requiredElement<HTMLButtonElement>("#save-preset");
@@ -331,6 +347,19 @@ let generatedBarsCache: DisplayBar[] = [];
 let generatedCacheKey = "";
 let nextCycleSeedMidi: number | null = null;
 let nextCycleSeedDirection: 1 | -1 = 1;
+
+function setSettingsOpen(isOpen: boolean): void {
+  settingsDrawerEl.classList.toggle("is-open", isOpen);
+  settingsBackdropEl.classList.toggle("is-open", isOpen);
+  settingsDrawerEl.setAttribute("aria-hidden", String(!isOpen));
+  settingsBackdropEl.setAttribute("aria-hidden", String(!isOpen));
+  openSettingsEl.setAttribute("aria-expanded", String(isOpen));
+  document.body.classList.toggle("settings-open", isOpen);
+}
+
+function isSmallScreen(): boolean {
+  return window.matchMedia("(max-width: 640px)").matches;
+}
 
 function clampNotesPerBar(value: number): number {
   return Math.max(MIN_NOTES_PER_BAR, Math.min(MAX_NOTES_PER_BAR, value));
@@ -1614,7 +1643,9 @@ function downloadMidi(data: Uint8Array, filename: string): void {
 function render(): void {
   progressionEl.value = state.progressionText;
   jazzShorthandEl.checked = state.allowJazzShorthand;
-  bpmEl.value = String(state.bpm);
+  if (document.activeElement !== bpmEl) {
+    bpmEl.value = String(state.bpm);
+  }
   instrumentEl.value = state.instrument;
   notesPerBarEl.value = String(state.notesPerBar);
   intervalPracticeEl.value = state.intervalPractice;
@@ -1649,7 +1680,7 @@ builderInsertEl.addEventListener("click", () => {
   insertBuilderChord();
 });
 
-bpmEl.addEventListener("input", () => {
+bpmEl.addEventListener("change", () => {
   const val = Number.parseInt(bpmEl.value, 10);
   if (!Number.isNaN(val)) {
     state.bpm = Math.max(40, Math.min(300, val));
@@ -1770,6 +1801,9 @@ playPauseEl.addEventListener("click", () => {
     return;
   }
 
+  if (isSmallScreen()) {
+    setSettingsOpen(false);
+  }
   state.currentBar = 0;
   state.currentNoteStep = 0;
   state.lastMidiInLoop = null;
@@ -1779,6 +1813,25 @@ playPauseEl.addEventListener("click", () => {
     // eslint-disable-next-line no-console
     console.error("Failed to start audio", err);
   });
+  sheetPanelEl.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+openSettingsEl.addEventListener("click", () => {
+  setSettingsOpen(true);
+});
+
+closeSettingsEl.addEventListener("click", () => {
+  setSettingsOpen(false);
+});
+
+settingsBackdropEl.addEventListener("click", () => {
+  setSettingsOpen(false);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    setSettingsOpen(false);
+  }
 });
 
 resetEl.addEventListener("click", () => {
